@@ -20,6 +20,7 @@ namespace DatabaseTool
 {
     public partial class MainForm : XtraForm
     {
+        private  List<DatabaseServer> _databaseServers;
         public MainForm()
         {
             InitializeComponent();
@@ -29,11 +30,10 @@ namespace DatabaseTool
 
         private void MainForm_Load(object sender, EventArgs e)
         {
-            List<DatabaseServer> dbs = null;
             if (File.Exists(DefaultServerListConfigFile))
             {
-                dbs = File.ReadAllText(DefaultServerListConfigFile, Encoding.UTF8).FromJson<List<DatabaseServer>>();
-                gridControl.DataSource = dbs;
+                _databaseServers = File.ReadAllText(DefaultServerListConfigFile, Encoding.UTF8).FromJson<List<DatabaseServer>>();
+                gridControl.DataSource = _databaseServers;
             }
         }
 
@@ -64,13 +64,42 @@ namespace DatabaseTool
                 Tooltip = databaseServer.ConnectionString,
                 Tag = databaseServer
             };
-            var view = new DatabaseView(databaseServer)
+            var view = new DatabaseView(newPage,databaseServer)
             {
                 Dock = DockStyle.Fill
             };
             newPage.Controls.Add(view);
             xtraTabControl.TabPages.Add(newPage);
             xtraTabControl.SelectedTabPage = newPage;
+        }
+
+        private void gridView_RowClick(object sender, DevExpress.XtraGrid.Views.Grid.RowClickEventArgs e)
+        {
+            var databaseServer = gridView.GetFocusedRow() as DatabaseServer;
+            if (databaseServer != null)
+            {
+                var tab = xtraTabControl.TabPages.FirstOrDefault(item => item.Text == databaseServer.DisplayName);
+                if (tab != null)
+                {
+                    xtraTabControl.SelectedTabPage = tab;
+                }
+            }
+        }
+
+        private void gridView_RowUpdated(object sender, DevExpress.XtraGrid.Views.Base.RowObjectEventArgs e)
+        {
+            if (e.Row is DatabaseServer databaseServer)
+            {
+                alertControl.Show(this,"通知","数据库信息已修改，将在关闭时自动保存");
+            }
+        }
+
+        private void MainForm_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            if (_databaseServers != null)
+            {
+                File.WriteAllText(DefaultServerListConfigFile,_databaseServers.ToJson());
+            }
         }
     }
 }
